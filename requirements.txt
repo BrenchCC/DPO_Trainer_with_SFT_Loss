@@ -1,0 +1,12 @@
+torch>=2.0.0
+transformers>=4.30.0
+peft>=0.4.0
+datasets>=2.12.0
+accelerate>=0.20.0
+bitsandbytes>=0.39.0
+scipy
+numpy
+pandas
+tqdm
+tensorboard
+wandb
