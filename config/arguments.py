@@ -5,7 +5,7 @@ from transformers import TrainingArguments as HFTrainingArguments
 @dataclass
 class ModelArguments:
     """
-    模型相关参数配置
+    model arguments configs
     """
     model_name_or_path: Optional[str] = field(
         default = "Qwen/Qwen3-0.6B",
@@ -15,7 +15,7 @@ class ModelArguments:
 @dataclass
 class DataArguments:
     """
-    数据集相关参数配置
+    data arguments configs
     """
     train_data_path: str = field(
         default = "data/train.json",
@@ -29,7 +29,7 @@ class DataArguments:
 @dataclass
 class TrainingArguments(HFTrainingArguments):
     """
-    训练参数相关配置，FROM HuggingFace TrainingArguments
+    training arguments configs，FROM HuggingFace TrainingArguments
     """
     cache_dir: Optional[str] = field(default=None, metadata={"HELP": "Cache Dir"})
     optimizer: str = field(default = "adamw_torch")
@@ -40,7 +40,7 @@ class TrainingArguments(HFTrainingArguments):
     lora: bool = field(default = False, metadata={"HELP": "LoRa Enable"})
     qlora: bool = field(default = False, metadata={"HELP": "QLoRa Enable"})
 
-    # DPO相关参数
+    # DPO related arguments
     dpo: bool = field(default = False, metadata={"HELP": "Use DPO"})
     dpo_beta: float = field(
         default = 0.1,
@@ -51,7 +51,7 @@ class TrainingArguments(HFTrainingArguments):
         metadata={"HELP": "Reference Model Path, if None then using main model"}
     )
 
-    # SFT损失权重参数
+    # SFT Loss Weight Arguments
     sft_loss_weight: float = field(
         default = 0.1,
         metadata={"HELP": "SFT Loss Weight, combine with DPO Training"}
