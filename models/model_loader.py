@@ -83,7 +83,7 @@ def load_reference_model(model_path: str, bf16: bool = False, fp16: bool = False
     """
     Load reference model for dpo training
     """
-    assert not (bf16 and fp16), "bf16 or fp16, not both"
+    assert not (bf16 and fp16), "bf16 or fp16, not both using"
     if bf16:
         dtype = torch.bfloat16
     elif fp16:
