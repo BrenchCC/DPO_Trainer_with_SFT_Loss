@@ -76,3 +76,45 @@ class DPOTrainer(Trainer):
         sequence_log_probs = masked_log_probs.sum(dim = -1)
 
         return sequence_log_probs
+
+    def compute_dpo_loss(
+        self,
+        policy_chosen_logps: torch.Tensor,
+        policy_rejected_logps: torch.Tensor,
+        reference_chosen_logps: torch.Tensor,
+        reference_rejected_logps: torch.Tensor
+    ) -> tuple:
+        """
+        Calculating DPO loss function
+        """
+        # Calculate the log probability ratio relative to the reference model
+        policy_ratio_chosen = policy_chosen_logps - reference_chosen_logps
+        policy_ratio_rejected = policy_rejected_logps - reference_rejected_logps
+
+        # DPO loss: The probability of encouraging chosen replies is higher than rejected replies
+        logits = self.dpo_beta * (policy_ratio_chosen - policy_ratio_rejected)
+        loss = -F.logsigmoid(logits).mean()
+
+        # calculate accuracy
+        accuracy = (policy_chosen_logps > policy_rejected_logps).float().mean()
+
+        # statistic information
+        with torch.no_grad():
+            policy_diff = policy_chosen_logps - policy_rejected_logps
+            reference_diff = reference_chosen_logps - reference_rejected_logps
+            kl_chosen = policy_chosen_logps - reference_chosen_logps
+            kl_rejected = policy_rejected_logps - reference_rejected_logps
+
+        stats = {
+            'policy_diff_mean': policy_diff.mean().item(),
+            'reference_diff_mean': reference_diff.mean().item(),
+            'kl_chosen_mean': kl_chosen.mean().item(),
+            'kl_rejected_mean': kl_rejected.mean().item(),
+            'logits_mean': logits.mean().item(),
+            'policy_chosen_mean': policy_chosen_logps.mean().item(),
+            'policy_rejected_mean': policy_rejected_logps.mean().item(),
+            'reference_chosen_mean': reference_chosen_logps.mean().item(),
+            'reference_rejected_mean': reference_rejected_logps.mean().item(),
+        }
+
+        return loss, accuracy, stats
