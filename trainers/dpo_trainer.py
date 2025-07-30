@@ -118,3 +118,18 @@ class DPOTrainer(Trainer):
         }
 
         return loss, accuracy, stats
+
+    def compute_sft_loss(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """
+        Calculating regular SFT loss function(cross entropy loss)
+        """
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+
+        loss_func = nn.CrossEntropyLoss(ignore_index = -100)
+        shift_logits = shift_logits.view(-1, shift_logits.size(-1))
+        shift_labels = shift_labels.view(-1)
+
+        loss = loss_func(shift_logits, shift_labels)
+
+        return loss
