@@ -12,13 +12,13 @@ class DPOTrainer(Trainer):
     def __init__(
         self,
         reference_model = None,
-        dpo_meta: float = 0.1,
+        dpo_beta: float = 0.1,
         sft_loss_weight: float = 0.0,
         **kwargs
     ):
         super().__init__(**kwargs)
         self.reference_model = reference_model
-        self.dpo_meta = dpo_meta
+        self.dpo_beta = dpo_beta
         self.sft_loss_weight = sft_loss_weight
         self.sft = sft_loss_weight > 0
 
@@ -133,3 +133,80 @@ class DPOTrainer(Trainer):
         loss = loss_func(shift_logits, shift_labels)
 
         return loss
+
+    def compute_loss(
+        self,
+        model,
+        inputs: Dict[str, Any],
+        return_outputs: bool,
+        num_items_in_batch: Optional[int] = None
+    ):
+        """
+        calculate dpo loss and optional SFT loss
+        """
+        # calculate policy model log probability
+        policy_chosen_logps = self.get_log_probabilities(
+            model,
+            inputs["chosen_input_ids"],
+            inputs["chosen_attention_mask"], inputs["chosen_start_position"]
+        )
+        policy_rejected_logps = self.get_log_probabilities(
+            model,
+            inputs["rejected_input_ids"],
+            inputs["rejected_attention_mask"], inputs["rejected_start_position"]
+        )
+
+        # calculate reference model log probabilities
+        with torch.no_grad():
+            reference_chosen_logps = self.get_log_probabilities(
+                self.reference_model,
+                inputs["chosen_input_ids"],
+                inputs["chosen_attention_mask"],
+                inputs[" chosen_start_position"]
+            )
+            reference_rejected_logps = self.get_log_probabilities(
+                self.reference_model,
+                inputs["rejected_input_ids"],
+                inputs["rejected_attention_mask"],
+                inputs["rejected_start_position"]
+            )
+
+        # calculate dpo loss
+        dpo_loss, accuracy, stats = self.compute_dpo_loss(
+            policy_chosen_logps,
+            policy_rejected_logps,
+            reference_chosen_logps,
+            reference_rejected_logps
+        )
+
+        total_loss = dpo_loss
+
+        # prepare for log dict
+        log_dict = {
+            "dpo_loss": dpo_loss.item(),
+            "dpo_accuracy": accuracy.item(),
+            **stats
+        }
+
+        # calculate sft loss if use_sft and data is available
+        if self.sft and "chosen_labels" in inputs:
+            outputs = model(
+                input_ids = inputs["chosen_input_ids"],
+                attention_mask = inputs["chosen_attention_mask"],
+            )
+
+            sft_loss = self.compute_sft_loss(outputs.logits, inputs["chosen_labels"])
+
+            total_loss += sft_loss * self.sft_loss_weight
+
+            log_dict.update({
+                "sft_loss": sft_loss.item(),
+                "sft_loss_weight": self.sft_loss_weight,
+                "total_loss": total_loss.item(),
+            })
+        else:
+            log_dict["total_loss"] = total_loss.item()
+
+        self.log(log_dict)
+
+        return (total_loss, None) if return_outputs else total_loss
